@@ -25,15 +25,19 @@ var collection *mongo.Collection
 var dbName = "timerdb"
 
 func main() {
+
+    port := os.Getenv("PORT")
+    if port == "" {
+        port = "8080"
+    }
+
 	password := os.Getenv("PASSWORD")
 
     // Check if the environment variable is set
     if password == "" {
         fmt.Println("PASSWORD environment variable is not set.")
-    } else {
-        fmt.Println("PASSWORD:", password)
     }
-
+    
     // Connect to MongoDB
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
 	opts := options.Client().ApplyURI("mongodb+srv://lkalinin:"+ password + "@cluster0.dajck5y.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0").SetServerAPIOptions(serverAPI)
@@ -61,9 +65,27 @@ func main() {
     http.HandleFunc("/timers", getTimers)
     http.HandleFunc("/timer", addTimer)
 
+    // Enable CORS
+    // Middleware function to set CORS headers
+    setCORSHeaders := func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            w.Header().Set("Access-Control-Allow-Origin", "*")
+            w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+            if r.Method == "OPTIONS" {
+                // Preflight request, respond with success
+                w.WriteHeader(http.StatusOK)
+                return
+            }
+
+            next.ServeHTTP(w, r)
+        })
+    }
+
     // Start server
     log.Println("Server listening on :8080")
-    log.Fatal(http.ListenAndServe(":8080", nil))
+    log.Fatal(http.ListenAndServe(":"+port, setCORSHeaders(http.DefaultServeMux)))
 }
 
 // getTimers retrieves all timer values from the database
